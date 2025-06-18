@@ -152,11 +152,10 @@ def main():
     plt.figure(figsize=(6, 4))
     plt.boxplot([x[0] for x in methods],
                 labels=[x[1] for x in methods],
-                boxprops=BOX_KW, medianprops=BOX_KW,
+                boxprops=dict(color='black', facecolor='#dbdbdb') , medianprops=BOX_KW,
                 whiskerprops=BOX_KW, capprops=BOX_KW,
-                flierprops=dict(marker='o', markersize=4,
-                                markerfacecolor='gray',
-                                markeredgecolor='black', linestyle='none'))
+                flierprops = dict(color='black'),
+                patch_artist=True)
     plt.ylabel("AUC")
     plt.tight_layout()
     plt.savefig(a.outdir / "boxplot_auc.png", dpi=DPI, bbox_inches="tight")

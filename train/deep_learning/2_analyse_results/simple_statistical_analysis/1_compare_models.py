@@ -280,7 +280,7 @@ def perform_statistical_analysis(best_results_df, metric_col, alpha=0.05, output
 
     # Genera boxplot de la métrica por modelo (ordenado por mediana descendente)
     plt.figure(figsize=(10, 6))
-    boxprops = dict(color='black')
+    boxprops = dict(color='black', facecolor='#dbdbdb')                        
     medianprops = dict(color='black')
     whiskerprops = dict(color='black')
     capprops = dict(color='black')
@@ -292,7 +292,8 @@ def perform_statistical_analysis(best_results_df, metric_col, alpha=0.05, output
         medianprops=medianprops,
         whiskerprops=whiskerprops,
         capprops=capprops,
-        flierprops=flierprops
+        flierprops=flierprops,
+        patch_artist=True
     )
     # plt.title(f"Distribución de {metric_col} por modelo")
     plt.ylabel("AUC en validación")
@@ -352,11 +353,22 @@ def perform_statistical_analysis(best_results_df, metric_col, alpha=0.05, output
         ax.set_yticks(np.arange(-0.5, len(models), 1), minor=True)
         ax.grid(which='minor', color='black', linestyle='--', linewidth=1)
         ax.tick_params(which='minor', bottom=False, left=False)
-    
+
+        cmap = cax.cmap
+        norm = cax.norm
+
         for i in range(len(models)):
             for j in range(len(models)):
-                es_val = effect_size_matrix[i, j]
-                ax.text(j, i, f"{es_val:.3f}", ha="center", va="center", color="black", fontsize=8)
+                val = effect_size_matrix[i, j]
+                # Obtenemos el RGBA de ese valor
+                r, g, b, _ = cmap(norm(val))
+                # Calculamos luminancia (fórmula rec. 601)
+                lum = 0.299*r + 0.587*g + 0.114*b
+                # Si fondo oscuro (lum<0.5) texto blanco, sino negro
+                text_color = 'white' if lum < 0.4 else 'black'
+                ax.text(j, i, f"{val:.3f}",
+                        ha='center', va='center',
+                        color=text_color, fontsize=8)
     
         fig.colorbar(cax, ax=ax, fraction=0.046, pad=0.04)
     

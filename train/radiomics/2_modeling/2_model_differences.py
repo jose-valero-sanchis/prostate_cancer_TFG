@@ -40,11 +40,11 @@ def main():
     parser = argparse.ArgumentParser(
         description="Comparación estadística de clasificadores (test global y post-hoc)."
     )
-    parser.add_argument("--csv_preds", type=str, help="Ruta al CSV con predicciones", required=True)
-    parser.add_argument("--csv_results", type=str, help="Ruta al CSV con las métricas por fold", required=True)
+    parser.add_argument("--csv_preds", type=str, help="Ruta al CSV con predicciones", default="../../../results/radiomics/most_discriminant/gland/preds_features_all_gland_most_discriminant.csv")
+    parser.add_argument("--csv_results", type=str, help="Ruta al CSV con las métricas por fold", default="../../../results/radiomics/most_discriminant/gland/resultados_features_all_gland_most_discriminant.csv")
     parser.add_argument("--metric", type=str, default="val_auc", help="Métrica a comparar entre clasificadores")
     parser.add_argument("--alpha", type=float, default=0.05, help="Nivel de significancia")
-    parser.add_argument("--outdir", type=str, default=".", help="Directorio de salida")
+    parser.add_argument("--outdir", type=str, default="../../../results/radiomics/most_discriminant/gland/model_differences", help="Directorio de salida")
 
     args = parser.parse_args()
     
@@ -168,7 +168,7 @@ def main():
     print(f"  --> Resumen estadístico guardado en: {txt_path}")
 
     # --- Gráfico 1: Boxplot de la métrica por clasificador ---
-    boxprops = dict(color='black')                        
+    boxprops = dict(color='black', facecolor='#dbdbdb')                        
     medianprops = dict(color='black')                     
     whiskerprops = dict(color='black')                    
     capprops = dict(color='black')                        
@@ -180,7 +180,8 @@ def main():
         medianprops=medianprops,
         whiskerprops=whiskerprops,
         capprops=capprops,
-        flierprops=flierprops
+        flierprops=flierprops,
+        patch_artist=True
     )
     plt.ylabel("AUC en validación")
     plt.xticks(rotation=45, ha='right')

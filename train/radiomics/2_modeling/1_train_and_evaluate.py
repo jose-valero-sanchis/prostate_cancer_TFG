@@ -373,6 +373,9 @@ def main():
         images_dir = os.path.join(fs_dir, "images")
         os.mkdir(images_dir)
         
+        # -----------------------------------------
+        # 2) Estadísticas univariantes
+        # -----------------------------------------
         # Inicializar listas para almacenar estadísticas por característica
         feature_names, sensitivity_list, specificity_list = ([] for _ in range(3))
         auc_list, threshold_list, test_type_list, pvalue_list, pos_vs_neg_list = ([] for _ in range(5))
@@ -436,6 +439,40 @@ def main():
                      'Specificity', 'Test', 'p-value']
         ).sort_values(by='p-value', ascending=True) # Ordenar por p-valor (más significativas primero)
         
+        # # -----------------------------------------
+        # # 3) Seleccionar un máximo de N features,
+        # #    garantizandos 1 por clúster de |corr|≥0.90
+        # # -----------------------------------------
+        # num_features_model = round(X.shape[0] / 15)          # regla 1-en-15
+        # corr_threshold = 0.90                                # umbral de clúster
+        # features_ranked = train_auc_pvals_df.index.tolist()  # ordenadas por p-valor
+
+        # corr_matrix = X[features_ranked].corr().abs()        # matriz de correlación
+        # selected_features = []
+
+        # for feat in features_ranked:
+        #     # ¿Está altamente correlacionada con alguna ya seleccionada?
+        #     keep = True
+        #     for sel in selected_features:
+        #         if corr_matrix.loc[feat, sel] >= corr_threshold:
+        #             keep = False
+        #             break
+        #     if keep:
+        #         selected_features.append(feat)
+        #     if len(selected_features) >= num_features_model:
+        #         break
+
+        # print(f"  --> Seleccionadas {len(selected_features)} características (1 por clúster).")
+
+        # # Filtrar X con las features definitivas
+        # X = X[selected_features]
+
+        # # Guardar tabla completa de estadísticas
+        # df_path_1 = os.path.join(fs_dir, "train_auc_pvals_df.csv")
+        # train_auc_pvals_df.to_csv(df_path_1)
+        # print(f"  --> Guardado CSV: {df_path_1}\n")
+
+
         # Seleccionar características: máximo 1 característica por cada 15 muestras
         # (regla general para evitar sobreajuste)
         num_features_model = round(X.shape[0] / 15)
@@ -452,7 +489,10 @@ def main():
         df_path_1 = os.path.join(fs_dir, "train_auc_pvals_df.csv")
         train_auc_pvals_df.to_csv(df_path_1)
         print(f"  --> Guardado CSV: {df_path_1}\n")
-        
+
+        # -----------------------------------------
+        # 4) Visualización TOP-20
+        # -----------------------------------------
         # --- Generar visualizaciones para las TOP 20 características ---
         top_20 = train_auc_pvals_df.index[:20]
         

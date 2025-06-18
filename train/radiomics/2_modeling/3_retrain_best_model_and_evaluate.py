@@ -709,7 +709,7 @@ def main():
     # ----------------------------------------------------------------------
     # 2) SEPARAR HOLD-OUT TEST SET Y CONJUNTO DE ENTRENAMIENTO
     # ----------------------------------------------------------------------
-    gss = GroupShuffleSplit(test_size=0.2, random_state=42)
+    gss = GroupShuffleSplit(test_size=0.2, random_state=43)
     train_idx, test_idx = next(gss.split(X, y, groups=groups))
     X_train_full, X_test = X.iloc[train_idx], X.iloc[test_idx]
     y_train_full, y_test = y[train_idx], y[test_idx]

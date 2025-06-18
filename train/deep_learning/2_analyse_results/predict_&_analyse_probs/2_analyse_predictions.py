@@ -143,11 +143,12 @@ def perform_p_value_analysis(
     # ===== 6. Boxplot =====
     plt.figure(figsize=(10, 6))
     pivot.boxplot(color='black',
-                  boxprops=dict(color='black'),
+                  boxprops=dict(color='black', facecolor='#dbdbdb'),
                   medianprops=dict(color='black'),
                   whiskerprops=dict(color='black'),
                   capprops=dict(color='black'),
-                  flierprops=dict(color='black'))
+                  flierprops=dict(color='black'),
+                  patch_artist=True)
     
     # plt.title(f"Distribución de {metric_col} por modelo")
     ylabel_dict = {
