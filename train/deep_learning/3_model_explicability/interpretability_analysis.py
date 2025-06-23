@@ -1,3 +1,14 @@
+"""
+Script para análisis de interpretabilidad de modelos de Deep Learning en imágenes médicas.
+
+Este script permite:
+- Cargar un modelo entrenado y datos de test.
+- Seleccionar muestras según criterios (correctas, incorrectas, alta confianza, preseleccionadas).
+- Calcular y almacenar mapas de sensibilidad de oclusión si no existen.
+- Generar y guardar visualizaciones de ROI y de imagen completa.
+- Generar Grad-CAM y Guided Backprop, así como mapas agregados y de oclusión con overlay.
+"""
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,13 +26,29 @@ from sklearn.model_selection import StratifiedGroupKFold
 
 from z_data_loader_for_explicability_roi import MyDataLoader
 
+# Configuración global de matplotlib y dispositivo
 plt.style.use('dark_background')
 plt.rcParams['figure.figsize'] = (12, 8)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Utilizando dispositivo: {device}")
 
 def parse_arguments():
-    """Parsea los argumentos de línea de comandos."""
+    """Parsea los argumentos de línea de comandos.
+
+    Returns:
+        argparse.Namespace: Argumentos con atributos:
+            model_type (str): Tipo de modelo a analizar.
+            preselected_indices (list[int] | None): Índices de muestra preseleccionados.
+            criteria (str): Criterio para selección de muestras.
+            max_samples (int): Número máximo de muestras a analizar.
+            skip_gradcam (bool): Omitir cálculo de GradCAM.
+            skip_occlusion (bool): Omitir cálculo de mapas de oclusión.
+            skip_aggregated (bool): Omitir generación de mapas agregados.
+            max_attempts (int): Máximo intentos para selección aleatoria.
+            split (int | None): Split específico a usar.
+            project_root (str): Ruta raíz del proyecto.
+            output_dir (str): Directorio donde guardar resultados.
+    """
     parser = argparse.ArgumentParser(description="Análisis de interpretabilidad de modelos de deep learning")
     
     parser.add_argument("--model-type", type=str, default="config1",
@@ -60,6 +87,7 @@ def parse_arguments():
     
     args = parser.parse_args()
 
+    # Procesar índices preseleccionados si se proporcionan
     if args.preselected_indices is not None:
         args.preselected_indices = [int(x) for x in args.preselected_indices.split(",") if x.strip()]
     else:
@@ -70,16 +98,18 @@ def parse_arguments():
 
 def load_model_and_test_data(model_dir, csv_path, split_to_use=None, project_root=None):
     """
-    Carga un modelo y recupera los datos de test correspondientes a un split específico.
-    
+    Carga un modelo y recupera el dataloader de test para un split dado.
+
     Args:
-        model_dir: Directorio donde se encuentra el modelo
-        csv_path: Ruta al CSV de datos
-        split_to_use: Split específico a usar como test (si es None, usa el mejor split)
-    
+        model_dir (str): Directorio donde está el modelo entrenado.
+        csv_path (str): Ruta al CSV con metadatos de los datos.
+        split_to_use (int | None): Número de split a usar; si None, elige el mejor según AUC.
+        project_root (str | None): Ruta raíz del proyecto para ubicar config.json.
+
     Returns:
-        model: Modelo cargado
-        test_dataloader: DataLoader con los datos de test
+        tuple: (model, test_dataloader, split_to_use)
+    Raises:
+        ValueError: Si el tipo de modelo no está en config.json o no se encuentra el modelo.
     """
     # Cargar configuración desde config.json
     config_path = os.path.join(project_root, "train/deep_learning/1_modeling/config.json")
@@ -107,7 +137,7 @@ def load_model_and_test_data(model_dir, csv_path, split_to_use=None, project_roo
         # Cargar el mejor modelo overall
         model_path = os.path.join(model_dir, "best_overall_model.pth")
         # Intentar determinar cuál fue el mejor split usado para este modelo
-        base_dir = os.path.dirname(os.path.dirname(model_dir))  # Sube dos niveles (para saltar "models")
+        base_dir = os.path.dirname(os.path.dirname(model_dir)) 
         results_dir = os.path.join(base_dir, "results", os.path.basename(model_dir))
         print(results_dir)
         split_files = glob.glob(os.path.join(results_dir, "split_*_results.csv"))
@@ -148,7 +178,7 @@ def load_model_and_test_data(model_dir, csv_path, split_to_use=None, project_roo
     patient_ids = [item["patient_id"] for item in all_data]
     
     # Crear el objeto de validación cruzada estratificada por grupos (pacientes)
-    n_splits = 5  # Ajustar según tu entrenamiento original
+    n_splits = 5 
     splitter = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=42)
     
     # Obtener los índices del split que queremos usar como test
@@ -177,7 +207,9 @@ def load_model_and_test_data(model_dir, csv_path, split_to_use=None, project_roo
 
 def calculate_occlusion_sensitivity(model, test_dataloader, maps_dir, occlusion_dir):
     """
-    Calcula los mapas de sensibilidad de oclusión si no existen.
+    Calcula mapas de sensibilidad de oclusión y guarda resultados individuales y agregados.
+
+    Si los mapas ya existen (individuales y agregados), no recalcula.
     
     Args:
         model: Modelo entrenado
@@ -222,7 +254,8 @@ def calculate_occlusion_sensitivity(model, test_dataloader, maps_dir, occlusion_
             img, label = data["image"].to(device), data["label"].to(device)
             pred_label = torch.nn.functional.softmax(model(img), dim=1).argmax().item()
             label = label.argmax().item()
-            
+
+            # Solo procesar si clasificó correctamente
             if label == pred_label:
                 occ_result, _ = occ_sens(x=img)
                 occ_result = occ_result[0, label][None]
@@ -236,8 +269,8 @@ def calculate_occlusion_sensitivity(model, test_dataloader, maps_dir, occlusion_
     print(f"Muestras por clase: Clase 0 = {counts[0]}, Clase 1 = {counts[1]}")
     
     # Promediar los mapas por clase
-    no_csPCa = results[0] / max(counts[0], 1)  # Evitar división por cero
-    csPCa = results[1] / max(counts[1], 1)     # Evitar división por cero
+    no_csPCa = results[0] / max(counts[0], 1)  
+    csPCa = results[1] / max(counts[1], 1)     
     
     # Guardar mapas agregados
     torch.save({"no_csPCa": no_csPCa, "csPCa": csPCa}, aggregated_maps_path)
@@ -257,17 +290,20 @@ def seleccionar_indices_muestras(
     verbose = True,
 ):
     """
-    Devuelve una lista de dict:
-        { idx, true_class, dir }
+    Selecciona índices de muestras según criterios y guarda metadata en carpetas.
 
-    Para cada muestra aceptada se crea:
-        <dir>/metadata.txt   con:
-            Índice …
-            Forma …
-            Nombre archivo …
-            Clase real …
-            Predicción …
-            Probabilidades …
+    Args:
+        dataloader (DataLoader): Dataloader de test.
+        model (torch.nn.Module): Modelo entrenado.
+        model_results_dir (str): Carpeta base para resultados de este modelo.
+        csv_path (str): CSV con datos adicionales (e.g., ISUP).
+        criteria (str): Criterio de selección.
+        preselected_indices (list[int] | None): Índices fijos.
+        max_samples (int): Máximo muestras a seleccionar.
+        max_attempts (int): Máximo intentos en modo aleatorio.
+        verbose (bool): Mostrar mensajes.
+    Returns:
+        list[dict]: Lista de info {'idx', 'true_class', 'dir'} para cada muestra aceptada.
     """
     os.makedirs(model_results_dir, exist_ok=True)
     selected_info: list[dict] = []
@@ -276,6 +312,7 @@ def seleccionar_indices_muestras(
 
     # helper -------------------------------------------------------------
     def _save_metadata(idx, img, filename, true_c, pred_c, probs, out_dir):
+        """Guarda metadatos de la muestra en un archivo metadata.txt"""
         names = ("no_csPCa", "csPCa")
         with open(os.path.join(out_dir, "metadata.txt"), "w") as f:
             f.write(f"Índice: {idx}\n")
@@ -470,18 +507,20 @@ def seleccionar_indices_muestras(
 
 def get_bounding_box(mask: torch.Tensor, margin: int = 0):
     """
-    Devuelve (slice_z, slice_y, slice_x) que engloban los voxels > 0 de `mask`,
-    extendidas `margin` voxels por cada lado.
+    Devuelve slices que encierran voxels > 0 en la máscara, con margen opcional.
 
-    mask  : (C, Z, Y, X)  o  (Z, Y, X)  |   se asume que ya está en el dispositivo correcto
-    margin: voxels extra de cada lado (int ≥ 0)
+    Args:
+        mask (torch.Tensor): Tensor (C, Z, Y, X) o (Z, Y, X) en dispositivo correcto.
+        margin (int): Voxels extra por lado.
+    Returns:
+        tuple(slice, slice, slice): Slices para ejes Z, Y, X.
     """
     # Quitar canal si viene como (1, Z, Y, X)
     mask_ = mask[0] if (mask.ndim == 4 and mask.shape[0] == 1) else mask
 
     nz = torch.nonzero(mask_, as_tuple=False)
 
-    if nz.numel() == 0:                      # máscara vacía → caja = volumen completo
+    if nz.numel() == 0:                      
         z0 = y0 = x0 = 0
         z1, y1, x1 = mask_.shape
     else:
@@ -505,10 +544,11 @@ def guardar_imagenes_full_y_roi(
     margin: int = 20
 ):
     """
-    Para cada elemento de selected_info guarda:
-      <dir>/images/roi/T2w.png  … ADC.png  … DWI.png
-      <dir>/images/original/T2w.png  … ADC.png  … DWI.png
-    usando un crop basado en la bounding box de la glándula, más un margen.
+    Guarda imágenes recortadas a ROI y originales para muestras seleccionadas.
+
+    Para cada muestra en selected_info, crea carpetas:
+      <dir>/original_images/gland/ y full/, con PNG de cada modalidad.
+    Usa bounding box de la glándula con margen.
     """
     for info in selected_info:
         idx      = info["idx"]
@@ -604,7 +644,7 @@ def generar_gradcam_gbp(
             true_label  = label.argmax().item() if label.numel() > 1 else int(label)
 
             if pred_label != true_label:
-                continue                                   # omitimos los fallos
+                continue                                   
 
             # ------------------------- Grad-CAM & GBP -------------------------
             cam_result = cam(x=img.unsqueeze(0)).squeeze(0).cpu()        # (C, Z, Y, X)
@@ -903,6 +943,18 @@ def ejecutar_todos_los_analisis(
     skip_occlusion=False,
     skip_aggregated=False,
 ):
+    """
+    Ejecuta todas las rutinas de análisis para las muestras seleccionadas.
+
+    Args:
+        model: modelo entrenado.
+        dataloader: DataLoader de test.
+        selected_info: lista de muestras seleccionadas.
+        maps: mapas agregados globales para generar aggregated maps.
+        sensitivity_maps_dir: ruta a mapas de oclusión individuales.
+        margin, threshold, channel_names: parámetros de visualización.
+        skip_*: flags para omitir pasos.
+    """
     # 1. GradCAM + GBP
     if not skip_gradcam:
         print("\n--- Generando GradCAM y GBP ---")

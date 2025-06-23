@@ -10,16 +10,20 @@
     ├── data_loader_for_cv_org.py
     └── data_loader_for_cv_roi.py
 
-2_analyse_results/                           
-├── predict_&_analyse_probs/
-│   ├── 1_predict.py                         # Generación de predicciones
-│   ├── 2_analyse_predictions.py             # Análisis de la distribución de las predicciones
+2_analyse_results/ 
+├── 1_predict/
+│   ├── predict.py                           # Generación de predicciones
 │   └── z_data_loader_for_cv_for_predict.py  # Carga de datos para evaluación
-├── simple_statistical_analysis/
-│   └── compare_models.py                    # Comparación estadística entre métricas de los modelos
+├── analyse_probs/
+│   └── analyse_probs.py                     # Análisis de la distribución de las predicciones
+└── simple_statistical_analysis/
+    ├── 1_compare_models.py                  # Comparación estadística entre métricas de los modelos
+    └── 1a_gland_vs_full_diferences.py       # Comparación entre glándula e imagen completa
 
 3_model_explicability/
-└── explain_predictions.py                  # Análisis de explicabilidad de predicciones
+├── interpretability_analysis.py             # Análisis de explicabilidad de predicciones
+└── z_data_loader_for_explicability_roi.py   # Carga de datos para interpretabilidad
+
 ```
 
 ## Metodología
@@ -59,22 +63,26 @@ Los resultados de esta fase se almacenan en [`artifacts/deep_learning`](../../ar
 
 ### 2. Comparación de modelos
 
-Se utilizan dos estrategias complementarias para comparar el rendimiento de los distintos modelos entrenados:
+La comparación de los modelos se realiza a partir de las predicciones de los conjuntos de validación. Estas predicciones se generan mediante el script [`predict.py`](./2_analyse_results/1_predict/predict.py), incluyendo también las probabilidades asignadas a cada clase para cada caso.
 
-1. Comparación simple
+A partir de esto, se utilizan dos estrategias complementarias para comparar el rendimiento de los distintos modelos entrenados:
 
-    - El script [`compare_models.py`](./2_analyse_results/simple_statistical_analysis/compare_models.py) analiza los resultados directamente a partir de los archivos de entrenamiento.  
-    - Se identifican los modelos más prometedores mediante la visualización de métricas como AUC, F1, accuracy, sensibilidad, etc.  
-    - Se aplican análisis estadísticos como el test de Friedman y comparaciones *post-hoc* (Wilcoxon con corrección de Holm).
+1. Comparación simple ([`1_compare_models.py`](./2_analyse_results/simple_statistical_analysis/1_compare_models.py))
 
-2. Comparación mediante predicciones
+    - A partir de las predicciones, se calculcan métricas como AUC, F1, accuracy, sensibilidad, etc.  
+    - Se identifican los modelos más prometedores mediante la visualización de dichas métricas   
+    - Sobre el AUC, se aplican análisis estadísticos como el test de Friedman y comparaciones *post-hoc* (Wilcoxon con corrección de Holm).
+    - Se compara tambien el AUC de cada configuración al usar la glándula prostática frente a exclusivamente la imagen completa, como entrada de los modelos ([`1a_gland_vs_full_diferences.py`](./2_analyse_results/simple_statistical_analysis/1a_gland_vs_full_diferences.py)).
 
-    - El script [`1_predict.py`](./2_analyse_results/predict_&_analyse_probs/1_predict.py) genera las predicciones de los modelos entrenados sobre sus conjuntos de validación, incluyendo las probabilidades asignadas a cada clase para cada paciente.  
-    - Estas probabilidades se comparan entre modelos utilizando [`2_analyse_predictions.py`](./2_analyse_results/predict_&_analyse_probs/2_analyse_predictions.py), que realiza un análisis estadístico acompañado de visualizaciones (boxplots, heatmaps de *p-valores*).
+2. Comparación mediante predicciones ([`analyse_probs.py`](./2_analyse_results/analyse_probs/analyse_probs.py))
+ 
+    Las probabilidades generadas por los modelos se comparan realizando un análisis estadístico acompañado de visualizaciones (boxplots, heatmaps de *p-valores*).
 
 #### Archivos generados
 
-Los resultados se almacenan en la carpeta [`results/deep_learning/model_comparison`](../../results/deep_learning/model_comparison/), incluyendo:
+Las predicciones se guardan en la carpeta [`artifacts/deep_learning/[mode]/z_predictions`](../../artifacts/deep_learning/gland/z_predictions/).
+
+Los resultados de los análisis se almacenan en la carpeta [`results/deep_learning/model_comparison`](../../results/deep_learning/model_comparison/), incluyendo:
 
 - Visualizaciones por métrica (gráficos de radar, barras, boxplots).  
 - Archivos `.csv` con métricas combinadas y estadísticas resumen.  
@@ -82,4 +90,21 @@ Los resultados se almacenan en la carpeta [`results/deep_learning/model_comparis
 
 ### 3. Explicabilidad del modelo
 
-<!-- TO-DO -->
+Para comprender el comportamiento del modelo, se aplica un análisis de interpretabilidad sobre ciertas muestras. El script principal que gestiona todo este proceso es ([`interpretability_analysis.py`](./3_model_explicability/interpretability_analysis.py)).
+
+Este análisis incluye dos enfoques complementarios:
+
+- **GradCAM y Guided Backpropagation**. Se generan mapas de activación (GradCAM) y mapas de *guided backpropagation* (GBP) sobre las regiones de entrada utilizadas por el modelo. Posteriormente, ambos mapas se combinan para identificar las zonas más relevantes en la toma de decisiones.
+
+- **Mapas de sensibilidad por oclusión**. Se evalúa la sensibilidad del modelo a regiones específicas del volumen mediante oclusión. Los mapas individuales se generan para cada muestra correctamente clasificada y, a partir de ellos, se construyen mapas agregados por clase (csPCa y no csPCa).
+
+#### Archivos generados
+
+Los resultados del análisis se almacenan en [`results/deep_learning/interpretability`](../../results/deep_learning/interpretability/), organizados por tipo de análisis y modalidad:
+
+- Mapas individuales y combinados de GradCAM y GBP (GradCAM)
+
+- Mapas de oclusión individuales (OcclusionSensitivity)
+
+- Mapas de oclusión agregados (AggregatedMaps)
+

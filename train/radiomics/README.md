@@ -11,6 +11,7 @@
 └───2_modeling
     ├── 1_train_and_evaluate.py                 # Entrenamiento y validación inicial de modelos
     ├── 2_model_differences.py                  # Comparación entre diferentes modelos entrenados
+    ├── 2a_gland_vs_full_differences.py         # Comparación entre glándula e imagen completa
     └── 3_retrain_best_model_and_evaluate.py    # Retrain del mejor modelo y evaluación final
 ```
 
@@ -27,14 +28,14 @@ Este script realiza la extracción paralela de características radiómicas:
     - Corrección de campo de sesgo N4 para normalizar intensidades no uniformes  
     - Reducción de ruido mediante filtro de difusión anisotrópica
 
-2. **Extracción de características**. Se procesan 3 secuencias (T2W, ADC, DWI) con 2 enfoques espaciales:
+2. **Extracción de características**. Se procesan 3 tipos de imagen (T2W, ADC, DWI) con 2 enfoques espaciales:
 
     * **Enfoque glandular**: análisis limitado a la próstata  
     * **Enfoque completo**: análisis de toda la imagen
 
 #### Archivos generados
 
-El script produce un total de 6 archivos `.csv`, que se almacenan en [`artifacts/radiomics/`](../../artifacts/radiomics/), cada uno con las características extraídas por secuencia y enfoque:
+El script produce un total de 6 archivos `.csv`, que se almacenan en [`artifacts/radiomics/`](../../artifacts/radiomics/), cada uno con las características extraídas por tipo de imagen y enfoque:
 
 - `features_t2_gland.csv`  
 - `features_adc_gland.csv`  
@@ -49,7 +50,7 @@ Este notebook combina los seis archivos CSV generados en la fase anterior en dos
 
 1. **Proceso de fusión**:
    * Unificación de características por `paciente_estudio`
-   * Adición de prefijos según modalidad (adc_, dwi_, t2_)
+   * Adición de prefijos según tipo de imagen (adc_, dwi_, t2_)
    * Preservación de columnas de identificación y etiquetas
 
 2. **Archivos generados** en `concatenate_data/`:
@@ -64,6 +65,8 @@ Se entrenan y evalúan distintos clasificadores clásicos utilizando las caracte
 1. **Entrenamiento y validación ([`1_train_and_evaluate.py`](./2_modeling/1_train_and_evaluate.py))**. Se entrenan seis clasificadores (SVM, LR, RF, NB, KNN, GB) usando validación cruzada estratificada con grupos, repetida múltiples veces.
 
 2. **Comparación estadística ([`2_model_differences.py`](./2_modeling/2_model_differences.py))**. Se evalúan las diferencias de rendimiento entre modelos mediante el test de Friedman y comparaciones post-hoc (Wilcoxon con corrección de Holm).
+
+    Además, se realiza un análisis que compara el rendimiento de cada clasificador al usar características extraídas de la glándula prostática frente a aquellas obtenidas de la imagen completa ([`2a_gland_vs_full_differences.py`](./2_modeling/2a_gland_vs_full_differences.py)).
 
 3. **Optimización y explicabilidad ([`3_retrain_best_model_and_evaluate.py`](./2_modeling/3_retrain_best_model_and_evaluate.py))**. El mejor modelo se refina con búsqueda bayesiana, calibración y análisis de explicabilidad con SHAP y LIME.
 

@@ -91,7 +91,7 @@ def main():
         description="Compara AUC de DL vs Radiomics en 5 folds emparejados"
     )
     parser.add_argument("--dl_preds_csv", type=Path,
-        default="../../results/deep_learning/model_comparison/predict_&_analyse_probs/gland_analysis/predictions/config1_predictions.csv")
+        default="../../artifacts/deep_learning/gland/z_predictions/config1_predictions.csv")
     parser.add_argument("--radiomics_preds_csv", type=Path,
         default="../../results/radiomics/most_discriminant/gland/preds_features_all_gland_most_discriminant.csv")
     parser.add_argument("--radiomics_model", default="Logistic Regression",

@@ -59,7 +59,7 @@ de explicabilidad con el objetivo de valorar su utilidad clínica.
 <!-- TO-DO -->
 
 <p align="center">
-  <img src="z_figures/roc_optimal_folds.png" alt="Mejores resultados radiómica" width="80%">
+  <img src="z_figures/roc_mean_comparison.png" alt="Mejores resultados radiómica" width="80%">
 </p>
 
 ## Estructura del repositorio

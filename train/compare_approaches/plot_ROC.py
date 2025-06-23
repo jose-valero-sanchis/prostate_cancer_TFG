@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Script para comparar curvas ROC medias ± desviación estándar entre un modelo Deep Learning y Radiomics.
+
+Este script:
+- Carga predicciones de Deep Learning desde un CSV con columnas 'split', 'true_label', 'prob_class_1'.
+- Carga predicciones de Radiomics desde un CSV con columnas 'Fold', 'Classifier', 'y_val', 'y_prob'.
+- Calcula ROC medias y desviaciones por fold para cada enfoque.
+- Dibuja ambas curvas en un único gráfico, con sombreado ± desviación.
+"""
+
 from __future__ import annotations
 import argparse, ast
 from pathlib import Path
@@ -6,7 +18,7 @@ import pandas as pd
 import matplotlib as mpl
 mpl.use("Agg")
 import matplotlib.pyplot as plt
-import scienceplots                         # noqa: F401
+import scienceplots                         
 from sklearn import metrics
 
 plt.style.use(["science", "grid"])
@@ -15,16 +27,49 @@ COLOR_DL, COLOR_RAD = "#0072B2", "#D55E00"
 
 
 # --------------------------- utilidades --------------------------- #
+
 def _parse(series: pd.Series):
+    """
+    Parsea una serie con listas guardadas como strings a objetos Python.
+
+    Args:
+        series (pd.Series): Serie de pandas cuyos elementos pueden ser strings de listas.
+    Returns:
+        pd.Series: Serie con listas evaluadas en lugar de strings.
+    """
     return series.apply(lambda x: ast.literal_eval(x) if isinstance(x, str) else x)
 
 def load_radiomics(csv_path: Path, classifier: str):
+    """
+    Carga predicciones de Radiomics de un CSV.
+
+    Filtra filas donde 'Classifier' coincide y 'Repeat' == 1.
+    Convierte columnas 'y_val' y 'y_prob' de strings a listas.
+    Construye un dict fold -> (y_true, y_prob).
+
+    Args:
+        csv_path (Path): Ruta al CSV con columnas 'Fold','Classifier','Repeat','y_val','y_prob'.
+        classifier (str): Nombre del clasificador a filtrar en la columna 'Classifier'.
+    Returns:
+        dict[int, tuple[np.ndarray, np.ndarray]]: Mapea cada Fold a arrays numpy de y_true y y_prob.
+    """
     df = pd.read_csv(csv_path)
     df = df[(df["Classifier"] == classifier) & (df["Repeat"] == 1)]
     df["y_val"], df["y_prob"] = _parse(df["y_val"]), _parse(df["y_prob"])
     return {int(r["Fold"]): (r["y_val"], r["y_prob"]) for _, r in df.iterrows()}
 
 def load_dl(csv_path: Path):
+    """
+    Carga predicciones de Deep Learning de un CSV.
+
+    El CSV debe tener columnas 'split', 'true_label', 'prob_class_1'.
+    Agrupa por split y retorna dict split -> (y_true, y_prob).
+
+    Args:
+        csv_path (Path): Ruta al CSV.
+    Returns:
+        dict[int, tuple[np.ndarray, np.ndarray]]: Mapea cada split a arrays numpy.
+    """
     df = pd.read_csv(csv_path)
     return {int(fid): (g["true_label"].values, g["prob_class_1"].values)
             for fid, g in df.groupby("split")}
@@ -34,12 +79,16 @@ def compute_mean_roc(fold_dict: dict[int, tuple[np.ndarray, np.ndarray]],
                      n_points: int = 100
                     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     """
-    Dado un dict fold → (y_true, y_prob),
-    devuelve:
-      - mean_fpr: grid uniforme de FPR en [0,1]
-      - mean_tpr: media de los TPR interpolados en mean_fpr
-      - std_tpr: desviación estándar de esos TPR
-      - mean_auc: media de las AUC foldwise
+    Calcula ROC media y desviación estándar a partir de predicciones por fold.
+
+    Args:
+        fold_dict (dict[int, tuple[np.ndarray, np.ndarray]]): Mapea fold a (y_true, y_prob).
+        n_points (int): Número de puntos en grid uniforme de FPR.
+    Returns:
+        mean_fpr (np.ndarray): Grid uniforme de FPR en [0,1].
+        mean_tpr (np.ndarray): Media de TPR interpolados en mean_fpr.
+        std_tpr (np.ndarray): Desviación estándar de los TPR interpolados.
+        mean_auc (float): Media de AUC por fold.
     """
     tprs = []
     aucs = []
@@ -61,8 +110,14 @@ def compute_mean_roc(fold_dict: dict[int, tuple[np.ndarray, np.ndarray]],
 def plot_mean_roc(dl_dict, rad_dict, out_path: Path,
                   lw_curve: float = 1.5, alpha_shading: float = 0.2):
     """
-    Dibuja en un mismo panel las curvas ROC medias ± std
-    para Deep Learning y Radiomics, y ordena la leyenda según el valor de la AUC media.
+    Genera y guarda gráfico de ROC medias ± desviación para DL y Radiomics.
+
+    Args:
+        dl_dict (dict[int, tuple[np.ndarray, np.ndarray]]): Predicciones DL por fold.
+        rad_dict (dict[int, tuple[np.ndarray, np.ndarray]]): Predicciones Radiomics por fold.
+        out_path (Path): Ruta de salida para guardar la figura.
+        lw_curve (float): Grosor de línea para las curvas.
+        alpha_shading (float): Transparencia para sombreado de desviación.
     """
     # calcular medias y stds
     fpr_dl, tpr_dl_mean, tpr_dl_std, auc_dl = compute_mean_roc(dl_dict)
@@ -118,11 +173,11 @@ def plot_mean_roc(dl_dict, rad_dict, out_path: Path,
 def main():
     parser = argparse.ArgumentParser(
         description="Curvas ROC medias ± desviación para DL vs Radiomics")
-    parser.add_argument("--dl_preds_csv", type=Path, default="../../results/deep_learning/model_comparison/predict_&_analyse_probs/gland_analysis/predictions/config1_predictions.csv",
+    parser.add_argument("--dl_preds_csv", type=Path, default="../../artifacts/deep_learning/gland/z_predictions/config1_predictions.csv",
                         help="CSV con predicciones del modelo DL")
     parser.add_argument("--radiomics_preds", type=Path, default="../../results/radiomics/most_discriminant/gland/preds_features_all_gland_most_discriminant.csv",
                         help="CSV 'preds_…csv' con predicciones Radiomics")
-    parser.add_argument("--radiomics_model", type=str, default="Logistic Regression", # SVM
+    parser.add_argument("--radiomics_model", type=str, default="Logistic Regression",
                         help="Nombre del clasificador dentro del CSV Radiomics")
     parser.add_argument("--outdir", type=Path, default=Path("../../results/compare_best_radiomics_dl"),
                         help="Directorio donde se guardarán las figuras")

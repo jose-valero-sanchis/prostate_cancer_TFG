@@ -1,29 +1,72 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+"""
+Script para comparar AUC de modelos entrenados con dos enfoques: glándula vs. imagen completa.
+
+Este script:
+- Lee CSVs con resultados de validación de modelos Radiomics para glándula y de imagen completa.
+- Para cada clasificador común en ambos CSVs:
+  • Extrae los vectores de AUC de validación.
+  • Realiza test de Wilcoxon pareado (dos colas) y calcula p unilateral (H₁: glándula > full).
+  • Calcula estadísticas descriptivas: mediana e IQR de AUC.
+  • Genera informe en un archivo results.txt y un boxplot comparativo.
+- Guarda resultados en subcarpetas dentro del directorio de salida, una por modelo.
+"""
+
 import argparse
 import os
 import numpy as np
 import pandas as pd
 from scipy.stats import wilcoxon
 import matplotlib
-matplotlib.use('Agg')  # backend no interactivo
+matplotlib.use('Agg')  
 import matplotlib.pyplot as plt
 import scienceplots
 plt.style.use(['science', 'grid'])
 
-
 def one_sided_from_two_sided(stat, p_two, direction=+1):
-    """Convierte un p‑valor bicaudal en unilateral."""
+    """
+    Convierte un p-valor bicaudal en p-valor unilateral.
+
+    Args:
+        stat: Estadístico del test (por ejemplo, W de Wilcoxon pareado).
+        p_two: p-valor obtenido de dos colas.
+        direction: +1 si la hipótesis alternativa es stat > 0
+                   (en este caso, se evalúa si glándula > full),
+                   -1 si la alternativa es stat < 0.
+    Returns:
+        float: p-valor unilateral ajustado según la dirección.
+    """
     return p_two / 2 if stat * direction > 0 else 1 - p_two / 2
 
 def iqr(arr):
-    """Rango intercuartílico de un array NumPy."""
+    """
+    Calcula el rango intercuartílico (IQR) de un array NumPy.
+
+    Args:
+        arr: array de valores numéricos.
+    Returns:
+        float: Rango intercuartílico, es decir, percentil 75 menos percentil 25.
+    """
     q75, q25 = np.percentile(arr, [75, 25])
     return q75 - q25
 
 def compare_models(gland_csv: str, full_csv: str, outdir: str, alpha: float = 0.05):
-    """Compara glándula vs. imagen completa para cada clasificador."""
+    """
+    Compara AUCs de glándula vs. imagen completa para cada clasificador común.
+
+    Args:
+        gland_csv: Ruta al CSV con resultados de validación para el enfoque de glándula.
+                   Debe tener al menos columnas 'Classifier' y 'val_auc'.
+        full_csv: Ruta al CSV con resultados de validación para el enfoque de imagen completa.
+                  Debe tener al menos columnas 'Classifier' y 'val_auc'.
+        outdir: Directorio donde se crearán subcarpetas por modelo y se guardarán
+                los informes y los boxplots.
+        alpha: Nivel de significación para el test de Wilcoxon (por defecto 0.05).
+    Raises:
+        ValueError: Si no hay modelos en común entre ambos CSVs.
+    """
     df_gland = pd.read_csv(gland_csv)
     df_full = pd.read_csv(full_csv)
 

@@ -477,7 +477,7 @@ def main():
     
     Argumentos de línea de comandos:
         --mode: Tipo de resultados a analizar ('gland' o 'full')
-        --data_root: Directorio raíz donde se ubican las carpetas de resultados
+        --data_root: Directorio raíz donde se ubican las predicciones
         --output_base: Prefijo para el directorio de salida del análisis
     """
     parser = argparse.ArgumentParser(
@@ -488,8 +488,8 @@ def main():
         help="Tipo de resultados a analizar: 'gland' o 'full'."
     )
     parser.add_argument(
-        "--data_root", type=str, default="../../../../results/deep_learning/model_comparison/predict_&_analyse_probs/",
-        help="Directorio raíz donde se ubican las carpetas de resultados."
+        "--data_root", type=str, default="../../../../artifacts/deep_learning/",
+        help="Directorio raíz donde se ubican las predicciones."
     )
     parser.add_argument(
         "--output_base", type=str, default="../../../../results/deep_learning/model_comparison/simple_statistical_analysis/",
@@ -499,8 +499,8 @@ def main():
     args = parser.parse_args()
 
     # Construye las rutas específicas basadas en los argumentos
-    root_path = os.path.join(args.data_root, f"{args.mode}_analysis", "predictions")
-    output_dir = os.path.join(args.output_base, f"{args.mode}_analysis")
+    root_path = os.path.join(args.data_root, f"{args.mode}", "z_predictions")
+    output_dir = os.path.join(args.output_base, f"{args.mode}")
 
     # Ejecuta el análisis con las rutas especificadas
     analyze_results(root_path, output_dir)
