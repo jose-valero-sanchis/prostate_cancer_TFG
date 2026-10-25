@@ -56,7 +56,20 @@ de explicabilidad con el objetivo de valorar su utilidad clínica.
 
 ## Resultados
 
-<!-- TO-DO -->
+- **Radiómica:** el modelo representativo del enfoque, la regresión logística,
+  obtuvo una mediana del AUC de **0,799** en la validación cruzada.
+- **Deep learning:** el mejor modelo, basado en DenseNet121, obtuvo una mediana
+  del AUC de **0,753**.
+- La diferencia no fue estadísticamente significativa (p = 0,125), pero el tamaño
+  del efecto (d de Cohen = −1,227) indicó una ventaja práctica a favor del enfoque
+  radiómico.
+- **Interpretabilidad:** SHAP y LIME permitieron identificar las características
+  radiómicas que más influyeron en cada predicción, mientras que Occlusion
+  Sensitivity mostró las regiones de la imagen que más contribuyeron a las
+  decisiones del modelo de deep learning. La radiómica proporciona descriptores
+  numéricos interpretables, mientras que las visualizaciones del deep learning
+  muestran *dónde* se fija el modelo, pero no *qué propiedades* de esas regiones
+  determinan la clasificación.
 
 <p align="center">
   <img src="z_figures/roc_mean_comparison.png" alt="Mejores resultados radiómica" width="80%">
